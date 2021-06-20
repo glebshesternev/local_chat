@@ -1,6 +1,7 @@
 package ru.itmo.local_chat.network;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
 
 public class TCPConnection {
@@ -8,11 +9,7 @@ public class TCPConnection {
     protected final TCPConnectionListener eventListener;
     protected Thread rxThread;
 
-    public TCPConnection(TCPConnectionListener eventListener, String ipAddr, int port) throws IOException {
-        this(eventListener, new Socket(ipAddr, port));
-    }
-
-    public TCPConnection(TCPConnectionListener eventListener, Socket socket) throws IOException {
+    public TCPConnection(TCPConnectionListener eventListener, Socket socket) {
         this.eventListener = eventListener;
         this.socket = socket;
     }

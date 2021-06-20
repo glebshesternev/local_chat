@@ -2,7 +2,6 @@ package ru.itmo.local_chat.network;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public class MsgTCPConnection extends TCPConnection {
@@ -18,22 +17,17 @@ public class MsgTCPConnection extends TCPConnection {
         super(eventListener, socket);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
-        rxThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    eventListener.onConnectionReady(MsgTCPConnection.this);
-                    while (!rxThread.isInterrupted()) {
-                        eventListener.onReceiveString(MsgTCPConnection.this, in.readLine());
-                        Thread.sleep(500);
-                    }
-                } catch (IOException e) {
-                    eventListener.onException(MsgTCPConnection.this, e);
-                } catch (InterruptedException e) {
-                    eventListener.onException(MsgTCPConnection.this, e);
-                } finally {
-                    eventListener.onDisconnect(MsgTCPConnection.this);
+        rxThread = new Thread(() -> {
+            try {
+                eventListener.onConnectionReady(MsgTCPConnection.this);
+                while (!rxThread.isInterrupted()) {
+                    eventListener.onReceiveString(MsgTCPConnection.this, in.readLine());
+                    Thread.sleep(500);
                 }
+            } catch (IOException | InterruptedException e) {
+                eventListener.onException(MsgTCPConnection.this, e);
+            } finally {
+                eventListener.onDisconnect(MsgTCPConnection.this);
             }
         });
         rxThread.start();

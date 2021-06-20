@@ -18,24 +18,18 @@ public class FileTCPConnection extends TCPConnection {
         super(eventListener, socket);
         bis = new BufferedInputStream(socket.getInputStream());
         bos = new BufferedOutputStream(socket.getOutputStream());
-        rxThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    eventListener.onConnectionReady(FileTCPConnection.this);
-                    while (!rxThread.isInterrupted()) {
-                        if (bis.available() > 11)
-                            eventListener.onReceiveFile(FileTCPConnection.this, bis.read());
-                        Thread.sleep(500);
-                    }
-                } catch (IOException e) {
-                    eventListener.onException(FileTCPConnection.this, e);
-                } catch (InterruptedException e) {
-                    eventListener.onException(FileTCPConnection.this, e);
-                } finally {
-                    eventListener.onDisconnect(FileTCPConnection.this);
-
+        rxThread = new Thread(() -> {
+            try {
+                eventListener.onConnectionReady(FileTCPConnection.this);
+                while (!rxThread.isInterrupted()) {
+                    eventListener.onReceiveFile(FileTCPConnection.this, bis.read());
+                    Thread.sleep(500);
                 }
+            } catch (IOException | InterruptedException e) {
+                eventListener.onException(FileTCPConnection.this, e);
+            } finally {
+                eventListener.onDisconnect(FileTCPConnection.this);
+
             }
         });
         rxThread.start();
@@ -45,7 +39,7 @@ public class FileTCPConnection extends TCPConnection {
         try {
             String fileName = f.getName();
             byte[] name = fileName.getBytes(StandardCharsets.UTF_8);
-            int bufferSize = 1024*1024;
+            int bufferSize = 1024 * 1024;
             bos.write(name.length);
             bos.write(name);
             bos.write(ByteBuffer.allocate(Long.BYTES).putLong(f.length()).array());
@@ -76,7 +70,7 @@ public class FileTCPConnection extends TCPConnection {
             bis.read(fileSizeBuf, 0, 8);
             ByteBuffer buf = ByteBuffer.allocate(Long.BYTES);
             long fileSize = buf.put(fileSizeBuf).flip().getLong();
-            int bufferSize = 1024*1024;
+            int bufferSize = 1024 * 1024;
             //while (bis.available() < fileSize && bis.available() < bufferSize);
             byte[] buffer = new byte[bufferSize];
             int i;

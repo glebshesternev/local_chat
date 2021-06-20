@@ -41,7 +41,7 @@ public class ChatServer implements FileTCPConnectionListener, MsgTCPConnectionLi
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.out.println("TCPConnection exception: " + e);
         }
     }
 
@@ -84,8 +84,8 @@ public class ChatServer implements FileTCPConnectionListener, MsgTCPConnectionLi
     private void sendStringToAllConnections(String value) {
         System.out.println(value);
         final int count = msgConnections.size();
-        for (int i = 0; i < count; i++) {
-            msgConnections.get(i).sendString(value);
+        for (MsgTCPConnection msgConnection : msgConnections) {
+            msgConnection.sendString(value);
         }
     }
 
@@ -93,8 +93,8 @@ public class ChatServer implements FileTCPConnectionListener, MsgTCPConnectionLi
         System.out.println(fileName);
         File f = new File(homeDir + fileName);
         final int count = fileConnections.size();
-        for (int i = 0; i < count; i++) {
-            fileConnections.get(i).sendFile(f);
+        for (FileTCPConnection fileConnection : fileConnections) {
+            fileConnection.sendFile(f);
         }
     }
 

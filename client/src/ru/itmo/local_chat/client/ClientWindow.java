@@ -4,8 +4,6 @@ import ru.itmo.local_chat.network.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -38,6 +36,7 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
     private final JTextArea log = new JTextArea();
     private final JScrollPane scrollPane = new JScrollPane(log);
     private final JTextField fieldNickName = new JTextField("Gleb");
+    private final JTextField fieldHomeDir = new JTextField("");
     private final JTextField fieldInput = new JTextField();
     private final JButton selectBut = new JButton("Select");
     private final JButton sendBut = new JButton("Send");
@@ -48,18 +47,14 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
 
     private static String homeDir = "C:\\testDir\\Client\\";
 
-    private File[] selectedFiles;
+    private File selectedFile;
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new ClientWindow();
-            }
-        });
+        SwingUtilities.invokeLater(ClientWindow::new);
     }
 
     private ClientWindow() {
+
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setSize(WIDTH, HEIGHT);
         setLocationRelativeTo(null);
@@ -71,59 +66,49 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
         add(scrollPane, BorderLayout.CENTER);
 
 
-
         add(fieldInput, BorderLayout.SOUTH);
-        fieldInput.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String msg = fieldInput.getText();
-                if (!msg.equals("")) {
-                    fieldInput.setText(null);
-                    msgConnection.sendString(fieldNickName.getText() + ": " + msg);
-                }
+        fieldInput.addActionListener(e -> {
+            String msg = fieldInput.getText();
+            if (!msg.equals("")) {
+                fieldInput.setText(null);
+                msgConnection.sendString(fieldNickName.getText() + ": " + msg);
             }
         });
 
         add(selectBut, BorderLayout.WEST);
-        selectBut.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser();
-                chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-                chooser.setCurrentDirectory(new File(homeDir));
-                chooser.setMultiSelectionEnabled(true);
-                int returnVal = chooser.showOpenDialog(null);
-                if (returnVal == JFileChooser.APPROVE_OPTION) {
-                    selectedFiles = chooser.getSelectedFiles();
-                    sendBut.setEnabled(true);
-                }
+        selectBut.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+            chooser.setCurrentDirectory(new File(homeDir));
+            chooser.setMultiSelectionEnabled(false);
+            int returnVal = chooser.showOpenDialog(null);
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                selectedFile = chooser.getSelectedFile();
+                sendBut.setEnabled(true);
             }
         });
 
         add(sendBut, BorderLayout.EAST);
         sendBut.setEnabled(false);
-        sendBut.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                for (File f : selectedFiles) {
-                    //connection.sendString(fieldNickName.getText() + ": " + f);
-                    fileConnection.sendFile(f);
-                }
-            }
+        sendBut.addActionListener(e -> {
+            msgConnection.sendString(
+                    fieldNickName.getText() + " send file: " + selectedFile.getName() +
+                    " File size: " + (int) (selectedFile.length() / 1024) + " KB");
+            fileConnection.sendFile(selectedFile);
         });
 
         add(topPanel, BorderLayout.NORTH);
-        fieldNickName.setSize(NAME_WIDTH,NAME_HEIGHT);
+        fieldNickName.setSize(NAME_WIDTH, NAME_HEIGHT);
+        fieldHomeDir.setText(homeDir);
+        fieldHomeDir.setEditable(false);
+        topPanel.add(fieldHomeDir, BorderLayout.EAST);
+        topPanel.add(saveBut, BorderLayout.CENTER);
         topPanel.add(fieldNickName, BorderLayout.WEST);
-        topPanel.add(saveBut, BorderLayout.EAST);
 
-        saveBut.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                onDisconnect(msgConnection);
-                msgConnection.disconnect();
-                fileConnection.disconnect();
-            }
+        saveBut.addActionListener(e -> {
+            onDisconnect(msgConnection);
+            msgConnection.disconnect();
+            fileConnection.disconnect();
         });
 
         setVisible(true);
@@ -133,16 +118,19 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
                 "Enter IP address of the Server",
                 JOptionPane.QUESTION_MESSAGE);
 
-        homeDir = JOptionPane.showInputDialog(
+        String s = JOptionPane.showInputDialog(
                 this,
                 "Home folder:",
                 "Enter path to home folder",
                 JOptionPane.QUESTION_MESSAGE);
+
+        homeDir = s.equals("") ? homeDir : s;
+        ipAddr = ipAddr.equals("") ? IP_ADDR : ipAddr;
+        fieldHomeDir.setText(homeDir);
+
         try {
-            if (ipAddr.equals(""))
-                ipAddr = IP_ADDR;
-            msgConnection = new MsgTCPConnection(this, IP_ADDR, MSG_PORT);
-            fileConnection = new FileTCPConnection(this, IP_ADDR, FILE_PORT);
+            msgConnection = new MsgTCPConnection(this, ipAddr, MSG_PORT);
+            fileConnection = new FileTCPConnection(this, ipAddr, FILE_PORT);
         } catch (IOException e) {
             printMsg("Connection exception: " + e);
         }
@@ -153,7 +141,7 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
     public void onConnectionReady(FileTCPConnection tcpConnection) {
         printMsg("Connection ready...");
         try {
-            FileInputStream save = new FileInputStream(homeDir+SAVE_FILE);
+            FileInputStream save = new FileInputStream(homeDir + SAVE_FILE);
             byte[] buffer = new byte[1024];
             int i;
             do {
@@ -185,17 +173,14 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
         try {
-            FileOutputStream save = new FileOutputStream(homeDir+SAVE_FILE);
+            FileOutputStream save = new FileOutputStream(homeDir + SAVE_FILE);
             byte[] buffer = log.getText().getBytes(StandardCharsets.UTF_8);
             save.write(buffer, 0, buffer.length);
             printMsg("Log saved.");
-        } catch (FileNotFoundException e) {
-            printMsg("Connection exception: " + e);
         } catch (IOException e) {
             printMsg("Connection exception: " + e);
         }
         printMsg("Connection close...");
-
     }
 
     @Override
@@ -204,12 +189,9 @@ public class ClientWindow extends JFrame implements MsgTCPConnectionListener, Fi
     }
 
     private synchronized void printMsg(String msg) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                log.append(msg + '\n');
-                log.setCaretPosition(log.getDocument().getLength());
-            }
+        SwingUtilities.invokeLater(() -> {
+            log.append(msg + '\n');
+            log.setCaretPosition(log.getDocument().getLength());
         });
     }
 
