@@ -1,7 +1,6 @@
 package ru.itmo.local_chat.network;
 
 import java.io.*;
-import java.net.InetAddress;
 import java.net.Socket;
 
 public class TCPConnection {
@@ -31,4 +30,5 @@ public class TCPConnection {
     public int getPort() {
         return socket.getPort();
     }
+    public byte[] getAddr() { return socket.getInetAddress().getAddress(); }
 }
